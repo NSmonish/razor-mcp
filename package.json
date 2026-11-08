@@ -1,1 +1,18 @@
-{"bin":{"razor-mcp":"server.js"},"dependencies":{"@modelcontextprotocol/sdk":"^1.0.0","zod":"^3.0.0"},"description":"MCP server around Razor's static repo analysis: ranked file map, issue localization, skeletons, module briefs. Read-only, no LLM.","license":"ISC","name":"razor-mcp","scripts":{"smoke":"node test-client.mjs","start":"node server.js"},"type":"module","version":"0.1.0"}
+{
+  "bin": {
+    "razor-mcp": "server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.0.0"
+  },
+  "description": "MCP server around Razor: static repo analysis (read-only) plus a razor_fix tool that runs the Step 3 fix loop locally on the user's own OpenAI key.",
+  "license": "ISC",
+  "name": "razor-mcp",
+  "scripts": {
+    "smoke": "node test-client.mjs",
+    "start": "node server.js"
+  },
+  "type": "module",
+  "version": "0.2.0"
+}

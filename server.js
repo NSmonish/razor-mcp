@@ -9,13 +9,25 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const adapter = require('./adapter.cjs');
+const fixBridge = require('./fix_bridge.cjs');
 
-const server = new McpServer({ name: 'razor', version: '0.1.0' });
+const server = new McpServer({ name: 'razor', version: '0.2.0' });
 
 function wrap(fn) {
   return async (args) => {
     try {
       return { content: [{ type: 'text', text: fn(args) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  };
+}
+
+function wrapAsync(fn) {
+  return async (args) => {
+    try {
+      const text = await fn(args);
+      return { content: [{ type: 'text', text }] };
     } catch (err) {
       return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
     }
@@ -63,6 +75,19 @@ server.tool(
     max_bytes: z.number().optional().describe('Max bytes of the brief (default 8000)'),
   },
   wrap(({ repo_path, path: target, max_bytes }) => adapter.moduleBrief(repo_path, target, max_bytes)),
+);
+
+server.tool(
+  'razor_fix',
+  'Fix one bug in a local Python repo with the Step 3 loop (budgeted reads, masking keep-10, allocation guard, GPT-5 mini, temp 0.0). Runs locally in a scratch copy; the repo is never modified. Returns a patch ONLY if the scoped tests pass on it, otherwise no patch and a summary. Typical run 1-5 minutes, hard-capped by cost_cap_usd (default 0.50). Needs OPENAI_API_KEY in the server environment (your own key; the spend is yours). Python-only, git repos only, and the test command must already work in your environment.',
+  {
+    repo_path: z.string().describe('Absolute path to the repo root'),
+    issue_text: z.string().describe('Bug report in your own words'),
+    failing_tests: z.array(z.string()).optional().describe('Failing test node IDs, e.g. tests/test_x.py::test_y (optional; when absent, the test command decides what fails)'),
+    test_command: z.string().optional().describe('Test command run from the repo dir, e.g. pytest tests/test_x.py -q (optional; auto-detects pytest)'),
+    cost_cap_usd: z.number().optional().describe('Hard per-fix cap in USD (default 0.50)'),
+  },
+  wrapAsync(({ repo_path, issue_text, failing_tests, test_command, cost_cap_usd }) => fixBridge.runFix({ repo_path, issue_text, failing_tests, test_command, cost_cap_usd })),
 );
 
 const transport = new StdioServerTransport();
