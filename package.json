@@ -6,7 +6,7 @@
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.0.0"
   },
-  "description": "MCP server around Razor: static repo analysis (read-only) plus a razor_fix tool that runs the Step 3 fix loop locally on the user's own OpenAI key.",
+  "description": "MCP server around Razor: static repo analysis (read-only) plus razor_fix and razor_compare tools that run the Step 3 fix loop locally on the user's own OpenAI key.",
   "license": "ISC",
   "name": "razor-mcp",
   "scripts": {
@@ -14,5 +14,5 @@
     "start": "node server.js"
   },
   "type": "module",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

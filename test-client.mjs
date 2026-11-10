@@ -1,8 +1,8 @@
-// Dev-only smoke test: spawns server.js over stdio and calls all five tools.
-// razor_fix runs against test-fixture, whose tests already pass, so it
-// returns SETUP_FAIL without spending anything. A dummy key is set so the
-// key check passes and the precheck path is exercised; no real API call
-// is made. Not part of the shipped server.
+// Dev-only smoke test: spawns server.js over stdio and calls all six tools.
+// razor_fix and razor_compare run against test-fixture, whose tests already
+// pass, so they return SETUP_FAIL without spending anything. A dummy key is
+// set so the key check passes and the precheck path is exercised; no real
+// API call is made. Not part of the shipped server.
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -52,6 +52,23 @@ if (parsed.status !== 'SETUP_FAIL') {
 }
 if (parsed.patch !== null && parsed.patch !== undefined) {
   throw new Error('expected no patch on SETUP_FAIL');
+}
+
+// razor_compare end-to-end through MCP: same fixture, same precheck
+// ($0). The result must be a SETUP_FAIL with null arms.
+const compare = await call('razor_compare', {
+  repo_path: fixture,
+  issue_text: 'add(2, 3) is wrong',
+  failing_tests: ['tests/test_calc.py'],
+  test_command: 'python3 tests/test_calc.py',
+});
+const compared = JSON.parse(compare.content.map((c) => c.text).join('\n'));
+console.log(`\n=== razor_compare status: ${compared.status} ===`);
+if (compared.status !== 'SETUP_FAIL') {
+  throw new Error(`expected razor_compare SETUP_FAIL, got ${compared.status}`);
+}
+if (compared.naive !== null || compared.razor !== null) {
+  throw new Error('expected null arms on SETUP_FAIL');
 }
 await client.close();
 console.log('\nSMOKE DONE');

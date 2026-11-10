@@ -1,12 +1,14 @@
 # razor-mcp
 
 MCP server (stdio) around Razor's static repo analysis, from `razor-cli-v2`,
-plus `razor_fix`, which runs the Step 3 fix loop on a bug in a local repo.
+plus `razor_fix`, which runs the Step 3 fix loop on a bug in a local repo,
+and `razor_compare`, which runs the same bug twice (plain loop vs Step 3)
+and returns a side-by-side token and cost table.
 
 The first four tools are read-only and deterministic: no LLM calls, no
-writes. `razor_fix` is the exception: it calls the model with **your own
-OpenAI key** (`OPENAI_API_KEY` in the server environment) and spends your
-credits, capped per fix.
+writes. `razor_fix` and `razor_compare` are the exceptions: they call the
+model with **your own OpenAI key** (`OPENAI_API_KEY` in the server
+environment) and spend your credits, capped per run.
 
 ## Tools
 
@@ -17,6 +19,8 @@ credits, capped per fix.
 - `module_brief` — brief for one file (skeleton + import edges) or directory
   (top-ranked files with their defined symbols). Output capped.
 - `razor_fix` — fix one bug in a local Python repo. See below.
+- `razor_compare` — run one bug twice (plain loop vs Step 3) and return
+  a side-by-side token and cost table. See below.
 
 ## Fix a bug (razor_fix)
 
@@ -41,6 +45,23 @@ patch comes back as text for the agent to apply.
   harness files; re-sync them from `razor-fresh/harness` when Step 3
   changes).
 
+## Compare two loops (razor_compare)
+
+The agent calls `razor_compare` with a repo path and the bug in words.
+The same bug runs twice, each time on a fresh scratch copy: once with
+the plain naive loop (full tools, full history, no masking, no guard),
+once with the Step 3 loop. Same prompt, same test gate, same model,
+same key. The result is a side-by-side table: tokens, billed cost,
+solved or not, time, and a patch per arm that solved.
+
+- **Total cap default $1.00** for the pair ($0.50 per arm,
+  `cost_cap_usd` to change it). An arm that hits its half-cap stops as
+  `COST_CAPPED`; the other arm still runs.
+- **Honest scope:** the comparison measures the harness naive loop vs
+  Step 3, not your real agent (the server cannot see the calling
+  agent's tokens). One bug is one sample. A typical pair costs about
+  $0.10 to $0.30 and takes 2 to 10 minutes.
+
 ## Run
 
 ```sh
@@ -62,8 +83,8 @@ Any client with `.mcp.json` (Claude Code, Cursor, VS Code):
 { "mcpServers": { "razor": { "command": "npx", "args": ["-y", "github:NSmonish/razor-mcp"], "env": { "OPENAI_API_KEY": "sk-your-own-key" } } } }
 ```
 
-`razor_fix` needs `OPENAI_API_KEY` in the server environment; the other four
-tools work without it.
+`razor_fix` and `razor_compare` need `OPENAI_API_KEY` in the server
+environment; the other four tools work without it.
 
 Local path instead (if you cloned the repo yourself):
 
@@ -78,6 +99,7 @@ claude mcp add razor -- node /path/to/razor-mcp/server.js
 - The graph is cached per server process; `map_repo` with `rebuild: true`
   refreshes it after the repo changes.
 - The v2 tree is required by path and never modified.
-- Dev smoke test: `npm run smoke` (spawns the server and calls all five
-  tools; `razor_fix` runs against a fixture repo whose tests already pass,
-  so it returns SETUP_FAIL without spending anything).
+- Dev smoke test: `npm run smoke` (spawns the server and calls all six
+  tools; `razor_fix` and `razor_compare` run against a fixture repo
+  whose tests already pass, so they return SETUP_FAIL without spending
+  anything).

@@ -10,8 +10,9 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const adapter = require('./adapter.cjs');
 const fixBridge = require('./fix_bridge.cjs');
+const compareBridge = require('./compare_bridge.cjs');
 
-const server = new McpServer({ name: 'razor', version: '0.2.0' });
+const server = new McpServer({ name: 'razor', version: '0.3.0' });
 
 function wrap(fn) {
   return async (args) => {
@@ -88,6 +89,19 @@ server.tool(
     cost_cap_usd: z.number().optional().describe('Hard per-fix cap in USD (default 0.50)'),
   },
   wrapAsync(({ repo_path, issue_text, failing_tests, test_command, cost_cap_usd }) => fixBridge.runFix({ repo_path, issue_text, failing_tests, test_command, cost_cap_usd })),
+);
+
+server.tool(
+  'razor_compare',
+  'Run one bug twice on fresh scratch copies, once with the plain naive loop and once with the Step 3 loop, and return a side-by-side table: tokens, billed cost, solved or not, time, and a patch per arm that solved. Same prompt, same test gate, same model (GPT-5 mini), your own key. The comparison measures the harness naive loop vs Step 3, not your real agent, and one bug is one sample. Typical pair 2-10 minutes, hard-capped by cost_cap_usd for the pair (default 1.00, $0.50 per arm). Needs OPENAI_API_KEY in the server environment. Python-only, git repos only, and the test command must already work in your environment.',
+  {
+    repo_path: z.string().describe('Absolute path to the repo root'),
+    issue_text: z.string().describe('Bug report in your own words'),
+    failing_tests: z.array(z.string()).optional().describe('Failing test node IDs, e.g. tests/test_x.py::test_y (optional; when absent, the test command decides what fails)'),
+    test_command: z.string().optional().describe('Test command run from the repo dir, e.g. pytest tests/test_x.py -q (optional; auto-detects pytest)'),
+    cost_cap_usd: z.number().optional().describe('Hard total cap in USD for the pair (default 1.00)'),
+  },
+  wrapAsync(({ repo_path, issue_text, failing_tests, test_command, cost_cap_usd }) => compareBridge.runCompare({ repo_path, issue_text, failing_tests, test_command, cost_cap_usd })),
 );
 
 const transport = new StdioServerTransport();
